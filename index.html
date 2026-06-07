@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notepad</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0e0e0e;
+      --surface: #161616;
+      --surface2: #1f1f1f;
+      --border: #2a2a2a;
+      --accent: #c8f564;
+      --accent2: #f5c842;
+      --text: #e8e8e0;
+      --muted: #6b6b6b;
+      --danger: #ff5c5c;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── AUTH SCREEN ── */
+    #auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      background-image: radial-gradient(ellipse at 20% 50%, #1a2a0a 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, #1a1a00 0%, transparent 50%);
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 380px;
+      padding: 48px 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .auth-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -1px;
+      margin-bottom: 6px;
+    }
+
+    .auth-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 36px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 28px;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: var(--radius);
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 4px;
+      color: var(--muted);
+      transition: all 0.2s;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      border: none;
+      background: transparent;
+    }
+
+    .auth-tab.active {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--accent);
+      color: #0e0e0e;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .auth-msg {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--danger);
+      min-height: 18px;
+      text-align: center;
+    }
+
+    .auth-msg.success { color: var(--accent); }
+
+    /* ── APP LAYOUT ── */
+    #app-screen { display: none; height: 100vh; flex-direction: column; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .topbar-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-email {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .btn-logout {
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 260px;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .btn-new {
+      width: 100%;
+      padding: 9px;
+      background: transparent;
+      border: 1px dashed var(--accent);
+      color: var(--accent);
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-new:hover { background: rgba(200,245,100,0.07); }
+
+    .search-wrap {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-wrap input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 10px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .search-wrap input::placeholder { color: var(--muted); }
+    .search-wrap input:focus { border-color: var(--border); }
+
+    .notes-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .notes-list::-webkit-scrollbar { width: 4px; }
+    .notes-list::-webkit-scrollbar-track { background: transparent; }
+    .notes-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .note-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.15s;
+    }
+
+    .note-item:hover { background: var(--surface2); }
+
+    .note-item.active {
+      background: var(--surface2);
+      border-left-color: var(--accent);
+    }
+
+    .note-item-title {
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+
+    .note-item-preview {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .note-item-date {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .empty-list {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 40px 20px;
+      line-height: 1.8;
+    }
+
+    /* ── EDITOR ── */
+    .editor-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .editor-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-save {
+      padding: 6px 16px;
+      background: var(--accent);
+      color: #0e0e0e;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-save:hover { opacity: 0.85; }
+
+    .btn-delete {
+      padding: 6px 14px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-delete:hover { color: var(--danger); border-color: var(--danger); }
+
+    #note-title {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'Playfair Display', serif;
+      font-size: 28px;
+      color: var(--text);
+      padding: 24px 24px 8px;
+      resize: none;
+    }
+
+    #note-title::placeholder { color: var(--border); }
+
+    #note-content {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      color: var(--text);
+      padding: 8px 24px 24px;
+      resize: none;
+      line-height: 1.8;
+    }
+
+    #note-content::placeholder { color: var(--muted); }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      gap: 12px;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      opacity: 0.3;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+    }
+
+    .saved-flash {
+      font-size: 11px;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .saved-flash.show { opacity: 1; }
+
+    #loading { display: none; text-align: center; padding: 40px; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">notepad.</div>
+    <div class="auth-sub">your personal notes, anywhere.</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') submitAuth()" />
+    </div>
+
+    <button class="btn-primary" onclick="submitAuth()" id="auth-btn">Login</button>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-logo">notepad.</div>
+    <div class="topbar-right">
+      <span class="user-email" id="user-email"></span>
+      <button class="btn-logout" onclick="logout()">logout</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <button class="btn-new" onclick="newNote()">+ new note</button>
+      </div>
+      <div class="search-wrap">
+        <input type="text" placeholder="search notes..." id="search-input" oninput="filterNotes()" />
+      </div>
+      <div class="notes-list" id="notes-list">
+        <div id="loading">loading...</div>
+      </div>
+    </div>
+
+    <div class="editor-pane" id="editor-pane">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-state-icon">✎</div>
+        <p>select a note or create a new one</p>
+      </div>
+
+      <div id="editor" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+        <div class="editor-toolbar">
+          <span class="editor-meta" id="editor-meta"></span>
+          <div class="editor-actions">
+            <span class="saved-flash" id="saved-flash">saved ✓</span>
+            <button class="btn-delete" onclick="deleteNote()">delete</button>
+            <button class="btn-save" onclick="saveNote()">save</button>
+          </div>
+        </div>
+        <textarea id="note-title" placeholder="Title" rows="1" oninput="autoResizeTitle(this)"></textarea>
+        <textarea id="note-content" placeholder="Start writing..."></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://xikcslruqriuycltgpnz.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpa2NzbHJ1cXJpdXljbHRncG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4MzAyMTcsImV4cCI6MjA5NjQwNjIxN30.DakV_nJSkCZf9sfdZUncaKR3s1KauzjlfOLdtGBmgbs';
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let allNotes = [];
+  let currentNote = null;
+  let currentTab = 'login';
+  let saveTimeout = null;
+
+  // ── AUTH ──
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.auth-tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'signup'));
+    });
+    document.getElementById('auth-btn').textContent = tab === 'login' ? 'Login' : 'Sign Up';
+    document.getElementById('auth-msg').textContent = '';
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const msg = document.getElementById('auth-msg');
+
+    if (!email || !password) { msg.textContent = 'Please fill in all fields.'; return; }
+
+    msg.textContent = 'Please wait...';
+    msg.className = 'auth-msg';
+
+    let result;
+    if (currentTab === 'login') {
+      result = await sb.auth.signInWithPassword({ email, password });
+    } else {
+      result = await sb.auth.signUp({ email, password });
+    }
+
+    if (result.error) {
+      msg.textContent = result.error.message;
+    } else if (currentTab === 'signup' && !result.data.session) {
+      msg.className = 'auth-msg success';
+      msg.textContent = 'Check your email to confirm your account!';
+    } else {
+      showApp(result.data.user);
+    }
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    allNotes = [];
+    currentNote = null;
+  }
+
+  // ── APP ──
+  async function showApp(user) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'flex';
+    document.getElementById('user-email').textContent = user.email;
+    await loadNotes();
+  }
+
+  async function loadNotes() {
+    const { data, error } = await sb.from('notes')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); return; }
+    allNotes = data || [];
+    renderNotesList(allNotes);
+  }
+
+  function renderNotesList(notes) {
+    const list = document.getElementById('notes-list');
+    if (notes.length === 0) {
+      list.innerHTML = '<div class="empty-list">no notes yet.<br/>create your first one ↑</div>';
+      return;
+    }
+    list.innerHTML = notes.map(n => `
+      <div class="note-item ${currentNote && currentNote.id === n.id ? 'active' : ''}" onclick="openNote('${n.id}')">
+        <div class="note-item-title">${escHtml(n.title || 'Untitled')}</div>
+        <div class="note-item-preview">${escHtml((n.content || '').substring(0, 60))}</div>
+        <div class="note-item-date">${formatDate(n.created_at)}</div>
+      </div>
+    `).join('');
+  }
+
+  function filterNotes() {
+    const q = document.getElementById('search-input').value.toLowerCase();
+    const filtered = allNotes.filter(n =>
+      (n.title || '').toLowerCase().includes(q) ||
+      (n.content || '').toLowerCase().includes(q)
+    );
+    renderNotesList(filtered);
+  }
+
+  function openNote(id) {
+    currentNote = allNotes.find(n => n.id === id);
+    if (!currentNote) return;
+
+    document.getElementById('empty-state').style.display = 'none';
+    const ed = document.getElementById('editor');
+    ed.style.display = 'flex';
+
+    document.getElementById('note-title').value = currentNote.title || '';
+    document.getElementById('note-content').value = currentNote.content || '';
+    document.getElementById('editor-meta').textContent = formatDate(currentNote.created_at);
+    autoResizeTitle(document.getElementById('note-title'));
+    renderNotesList(allNotes);
+  }
+
+  function newNote() {
+    currentNote = { id: null, title: '', content: '' };
+    document.getElementById('empty-state').style.display = 'none';
+    const ed = document.getElementById('editor');
+    ed.style.display = 'flex';
+    document.getElementById('note-title').value = '';
+    document.getElementById('note-content').value = '';
+    document.getElementById('editor-meta').textContent = 'new note';
+    document.getElementById('note-title').focus();
+    renderNotesList(allNotes);
+  }
+
+  async function saveNote() {
+    const title = document.getElementById('note-title').value.trim();
+    const content = document.getElementById('note-content').value;
+
+    const { data: { user } } = await sb.auth.getUser();
+
+    let result;
+    if (currentNote && currentNote.id) {
+      result = await sb.from('notes').update({ title, content }).eq('id', currentNote.id).select().single();
+    } else {
+      result = await sb.from('notes').insert({ title, content, user_id: user.id }).select().single();
+    }
+
+    if (result.error) { alert('Error saving: ' + result.error.message); return; }
+
+    currentNote = result.data;
+    const idx = allNotes.findIndex(n => n.id === currentNote.id);
+    if (idx >= 0) allNotes[idx] = currentNote; else allNotes.unshift(currentNote);
+    renderNotesList(allNotes);
+
+    const flash = document.getElementById('saved-flash');
+    flash.classList.add('show');
+    setTimeout(() => flash.classList.remove('show'), 2000);
+    document.getElementById('editor-meta').textContent = formatDate(currentNote.created_at);
+  }
+
+  async function deleteNote() {
+    if (!currentNote || !currentNote.id) { resetEditor(); return; }
+    if (!confirm('Delete this note?')) return;
+
+    await sb.from('notes').delete().eq('id', currentNote.id);
+    allNotes = allNotes.filter(n => n.id !== currentNote.id);
+    currentNote = null;
+    resetEditor();
+    renderNotesList(allNotes);
+  }
+
+  function resetEditor() {
+    document.getElementById('editor').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'flex';
+  }
+
+  // ── UTILS ──
+  function autoResizeTitle(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  // ── INIT ──
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) showApp(session.user);
+  })();
+
+  // auto-save on typing
+  document.addEventListener('DOMContentLoaded', () => {
+    ['note-title','note-content'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => { if (currentNote !== null) saveNote(); }, 2000);
+      });
+    });
+  });
+</script>
+</body>
+</html>
